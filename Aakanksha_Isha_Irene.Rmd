@@ -1,0 +1,822 @@
+---
+title: "Group Project BUS AN 514: Analytics for Marketing Decisions"
+author: "Aakanksha Baid, Isha Malte Irene Sung"
+date: "2/23/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+chooseCRANmirror(graphics=FALSE, ind=1)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+Founded in 2008, Airbnb is a homestay marketplace that allows home-owners or hosts to list their properties, or listings online, so that guests can pay to stay in them. Though Airbnb gives general giudelines to hosts for prices based on the listing type, rooms, accomodation etc. hosts usually set their own prices for their listings. A detailed pricing study is important and relevant for New York which is Airbnb's biggest market in USA and faces lot of competition from hotels.
+
+
+# Business Objectives
+
++ Help hosts in better understanding of price for their property based on multiple parameters
++ Compete with nearby hotels by offering attractive price
+
+# Project Objective:
+
++ Provide price prediction as a foundation model for Airbnb competitive pricing and supporting host in price setting
++ Learn and apply data processing and model learnt in the course
+
+# Dataset
+
+The dataset used for this project comes from [here](https://public.opendatasoft.com/explore/dataset/airbnb-ratings/export/?disjunctive.city&disjunctive.neighbourhood_cleansed&sort=number_of_reviews&dataChart=eyJxdWVyaWVzIjpbeyJjb25maWciOnsiZGF0YXNldCI6ImFpcmJuYi1yYXRpbmdzIiwib3B0aW9ucyI6eyJkaXNqdW5jdGl2ZS5jaXR5Ijp0cnVlLCJkaXNqdW5jdGl2ZS5uZWlnaGJvdXJob29kX2NsZWFuc2VkIjp0cnVlfX0sImNoYXJ0cyI6W3siYWxpZ25Nb250aCI6dHJ1ZSwidHlwZSI6ImxpbmUiLCJmdW5jIjoiQVZHIiwieUF4aXMiOiJob3N0X2xpc3RpbmdzX2NvdW50Iiwic2NpZW50aWZpY0Rpc3BsYXkiOnRydWUsImNvbG9yIjoiI0ZGNTE1QSJ9XSwieEF4aXMiOiJsYXN0X3JldmlldyIsIm1heHBvaW50cyI6IiIsInRpbWVzY2FsZSI6InllYXIiLCJzb3J0IjoiIn1dLCJkaXNwbGF5TGVnZW5kIjp0cnVlLCJhbGlnbk1vbnRoIjp0cnVlfQ%3D%3D&refine.last_scraped=2017&refine.state=NY). 
+
+
++ Airbnb NY Listing data across 2017
++ Original dataset: 44,308 observations, 94 variables
++ Cleaned dataset:43,760 observations 180 variables (including dummy)
+
++ Some of the more important features this project will look into are the following:
+*Price*: nightly price for the rental
+*cleaning_fee*: one-time fee charged by hosts to cover the cost of cleaning their property when guests depart
+*number_of_reviews*: number of reviews that previous guests have left
+*accommodates*: the number of guests the rental can accommodate
+*bedrooms*: number of bedrooms included in the rental
+*bathrooms*: number of bathrooms included in the rental
+*beds*: number of beds included in the rental
+*minimum_nights*: minimum number of nights a guest can stay for the rental
+*maximum_nights*: maximum number of nights a guest can stay for the rental
+
+
+# Exploratory Analysis:
+
+## Read in the data
+```{r}
+airbnb <- read.csv("airbnb-ratings.csv", sep=";")
+```
+
+
+## Explore the data
+```{r}
+library(psych)
+describe(airbnb$Price)
+nrow(airbnb)
+ncol(airbnb)
+```
+There are 44308 observations in the data.
+The mean daily price is $137.96 while median daily price is lower at $103.
+
+## Filter only relevant variables
+```{r}
+#Create Id for unique listings
+airbnb$Id <- seq(44308)
+airbnb_filter <- airbnb[c(2,3,20,21,23,24,26,29:30,32:36,39:43,46:67,69:72,74:83,87:93,95)]
+```
+
+## Check for missing values
+```{r}
+# colSums(is.na(airbnb_filter))
+```
+
+The variables "Host.is.superhost","Host.listings.count", "Host.has.profile.pic", "Host.identity.verified","Bathrooms", "Bedrooms","Beds","Square.feet,"Price","Weekly.price","Monthly.price","Security.deposit","Cleaning.fee","Review.scores.rating","Review.scores.accuracy","Review.scores.cleanliness","Review.scores.checkin","Review.scores.communication","Review.scores.location","Review.scores.value","Is.business.travel.ready","Reviews.per.month" have mising values in the New York data.
+
+Top missing value variables are -"Square.feet" and "Monthly.price" have almost 99% missing values, "Weekly.price" has 86% missing values. So, we have dropped these.
+
+
+## Keep variables with missing values less than threshold 
+
+```{r}
+threshold = 0.4
+airbnb_nmiss <- airbnb_filter[colSums(is.na(airbnb_filter))/nrow(airbnb_filter) < threshold]
+
+# 4 variables deleted. The new data has 59 variables with less than 40% missing values.
+```
+
+## Histograms
+```{r include=FALSE}
+library(tidyverse)
+library(ggplot2)
+```
+
+
+```{r}
+hist(airbnb_nmiss$Price,main ="Histogram of Price",xlab = "Daily Price",col  = "tan1")
+hist(airbnb_nmiss$Cleaning.fee,main ="Histogram of Cleaning fee",xlab = "Cleaning fee",col  = "tan1")
+hist(airbnb_nmiss$Availability.30,main ="Histogram of availability in 30 days",xlab = "Availablity in 30 days",col  = "tan1")
+hist(airbnb_nmiss$Availability.365,main ="Histogram of availability in 365 days",xlab = "Availablity in 365 days",col  = "tan1")
+hist(airbnb_nmiss$Review.scores.rating,main ="Histogram of Review scores Rating",xlab = "Rating from review scores",col  = "tan1")
+hist(airbnb_nmiss$Reviews.per.month,main ="Histogram of monthly reviews",xlab = "Reviews per month",col  = "tan1")
+```
+
+Price, Cleaning fee, Availability in 30 and 365 days and Monthly reviews are positively skewed.
+Review rating score is negatively skewed.
+
+## Boxplots
+```{r}
+boxplot(airbnb_nmiss$Accommodates,main ="Boxplot of people accomodated",xlab = "Listing accomodates number of people")
+boxplot(airbnb_nmiss$Extra.people,main ="Boxplot of Extra people accomodated",xlab = "Extra people accomodated")
+boxplot(airbnb_nmiss$Review.scores.cleanliness,main ="Boxplot of cleanliness Review scores",xlab = "cleanliness review scores")
+boxplot(airbnb_nmiss$Review.scores.location,main ="Boxplot of location Review scores",xlab = "location review scores")
+boxplot(airbnb_nmiss$Review.scores.value,main ="Boxplot of value Review scores",xlab = "value review scores")
+
+
+```
+There are outliers in all variables.
+
+
+## Neighboorhood plot
+```{r}
+ggplot(na.omit(airbnb_nmiss), mapping = aes(x = longitude, y = latitude, color = Neighbourhood.group.cleansed)) + geom_point() +
+  labs(title = "Neighborhoods in NY")
+```
+Maximum listings are located in Manhattan and Brooklyn.
+
+## Bivariate distribution
+```{r}
+ggplot(na.omit(airbnb_nmiss)) +
+  geom_point(mapping = aes(x=Number.of.reviews,y=Price,color = Room.type)) +
+  labs(title = "Number of Reviews vs. Price by Room type",
+  x = "Reviews", y = "Price")
+```
+As price increases, number of reviews decreases for each room type.
+
+
+## Plots
+```{r}
+barplot(table(airbnb_nmiss$Host.is.superhost)/length(airbnb_nmiss$Host.is.superhost),col = c("blue","red"), main = "Is Host SuperHost?",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Host.has.profile.pic)/length(airbnb_nmiss$Host.has.profile.pic),col = c("blue","red"), main = "Host has profile pic?",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Host.identity.verified)/length(airbnb_nmiss$Host.identity.verified),col = c("blue","red"), main = "Host identity verified?",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Instant.bookable)/length(airbnb_nmiss$Instant.bookable),col = c("blue","red"), main = "Instant bookable?",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Is.business.travel.ready)/length(airbnb_nmiss$Is.business.travel.ready),col = c("blue","red"), main = "Business Travel ready?",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Require.guest.profile.picture)/length(airbnb_nmiss$Require.guest.profile.picture),col = c("blue","red"), main = "Guest profile pic required?",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Require.guest.phone.verification)/length(airbnb_nmiss$Require.guest.phone.verification),col = c("blue","red"), main = "Guest phone required?",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Host.response.time)/length(airbnb_nmiss$Host.response.time),col = c("blue","red","green","grey","yellow","brown"), main = "Host response time",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Room.type)/length(airbnb_nmiss$Room.type),col = c("blue","red","green"), main = "Room type",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Bed.type)/length(airbnb_nmiss$Bed.type),col = c("blue","red","green","grey","orange"), main = "Bed type",ylim=c(0,1),ylab = "Fraction")
+barplot(table(airbnb_nmiss$Cancellation.policy)/length(airbnb_nmiss$Cancellation.policy),col = c("blue","red","green","grey","yellow","orange"), main = "Cancellation Policy",ylim=c(0,1),ylab = "Fraction")
+ggplot(na.omit(airbnb_nmiss),aes(Accommodates,Price)) +
+     labs(title = "Number of people accomodated vs. Price")+ geom_col()
+```
+
+Around less than 90% hosts in New York are not super hosts. So we hypothesize that this will not be an important predictor for price.
+
+Since over 95% hosts have profile pic, this variable doesn't add lot of value and can be dropped. Similarly, guest profile pic variable can also be dropped. Other variables like phone verification from guests, business travel ready and bed type having majorly real bed can be dropped -
+
+Host has profile pic, Require guest profile picture, Require guest phone verification, Is.business.travel.ready and Bed type are dropped from data.
+Also, using calculated host listings count instead of host listings count as we found from online data research, that it is a more accurate representation of host's listings.
+
+
+# In-depth analysis Part 1 - Data pre-processing 
+```{r}
+library(dplyr)
+airbnb1 <- airbnb_nmiss[c(-4,-8,-9, -10,-11,-16,-17,-19:-22,-29,-37,-55,-56)]
+#The data now has 44 variables
+```
+
+## Drop rows which have low missing data across columns
+```{r}
+library(tidyr)
+airbnb1 <- airbnb1 %>% drop_na(c('Price','Host.is.superhost', 'Host.identity.verified', 'Bathrooms', 'Bedrooms', 'Beds','Is.business.travel.ready'))
+# The data reduces to 43578 observations and 44 variables
+```
+
+## Missing value treatment
+```{r}
+#Replace NA of Review parameters by median of that column
+
+airbnb1$Review.scores.rating<- replace(airbnb1$Review.scores.rating,is.na(airbnb1$Review.scores.rating),median(airbnb1$Review.scores.rating, na.rm = TRUE))
+#describe(airbnb1$Review.scores.rating)
+
+airbnb1$Review.scores.accuracy<- replace(airbnb1$Review.scores.accuracy,is.na(airbnb1$Review.scores.accuracy),median(airbnb1$Review.scores.accuracy, na.rm = TRUE))
+#describe(airbnb1$Review.scores.accuracy)
+
+airbnb1$Review.scores.cleanliness<- replace(airbnb1$Review.scores.cleanliness,is.na(airbnb1$Review.scores.cleanliness),median(airbnb1$Review.scores.cleanliness, na.rm = TRUE))
+#describe(airbnb1$Review.scores.cleanliness)
+
+airbnb1$Review.scores.checkin<- replace(airbnb1$Review.scores.checkin,is.na(airbnb1$Review.scores.checkin),median(airbnb1$Review.scores.checkin, na.rm = TRUE))
+#describe(airbnb1$Review.scores.checkin)
+
+airbnb1$Review.scores.communication<- replace(airbnb1$Review.scores.communication,is.na(airbnb1$Review.scores.communication),median(airbnb1$Review.scores.communication, na.rm = TRUE))
+#describe(airbnb1$Review.scores.communication)
+
+airbnb1$Review.scores.location<- replace(airbnb1$Review.scores.location,is.na(airbnb1$Review.scores.location),median(airbnb1$Review.scores.location, na.rm = TRUE))
+#describe(airbnb1$Review.scores.location)
+
+airbnb1$Review.scores.value<- replace(airbnb1$Review.scores.value,is.na(airbnb1$Review.scores.value),median(airbnb1$Review.scores.value, na.rm = TRUE))
+#describe(airbnb1$Review.scores.value)
+
+airbnb1$Reviews.per.month<- replace(airbnb1$Reviews.per.month,is.na(airbnb1$Reviews.per.month),median(airbnb1$Reviews.per.month, na.rm = TRUE))
+
+```
+
+## Cleaning fee missing value treatment by neighborhood group
+```{r}
+median_cf <- airbnb1 %>% group_by(Neighbourhood.group.cleansed) %>% summarise(median_fee=median(Cleaning.fee, na.rm = TRUE))
+str(median_cf)
+airbnb1$Cleaning.fee<- ifelse(is.na(airbnb1$Cleaning.fee),as.numeric(median_cf$median_fee),airbnb1$Cleaning.fee)
+```
+
+## Handing string variable - "Ammenities" 
+```{r}
+# Check what's included in the column of 'amenitiies'
+airbnb1$Amenities %>% head(1) 
+#It's a long list of strings that require us to convert each ammenity to one column (dummy)
+```
+
+```{r}
+# Get all unique amenities across all listings
+level_index <- 0
+all_amenities <- vector()
+for (level in levels(airbnb1$Amenities)) 
+  {
+  level_index <- level_index + 1
+  #if (level_index %% 1000 == 0) 
+   # {
+    #print(paste("In level", level_index))
+    #}
+  cleanstr <- gsub("[][{}\"]", "", level)
+  items <- strsplit(cleanstr, ",")[[1]]
+  for (item in items) 
+    {
+    all_amenities <- append(all_amenities, item)
+    }
+  all_amenities <- unique(all_amenities)
+  }
+all_amenities <- sort(all_amenities)
+print(paste("Number of total amenities", length(all_amenities)))
+
+```
+
+```{r}
+# For each listing, compute an amenity one-hot vector.
+# Return a list of all listings' amenity one-hot vector.
+amentity_vec_of_all_listings <- list()
+i <- 0
+for (amenities_of_listing in airbnb1$Amenities) 
+  {
+  i <- i + 1
+  #if (i %% 100 == 0) 
+    #{
+   # print(i)
+   # }
+  amenstr <- gsub("[][{}\"]", "", amenities_of_listing)
+  amenity_items <- strsplit(amenstr, ",")[[1]]
+  amentity_vec_of_listing <- vector()
+  for (amen in all_amenities) 
+    {
+    if (amen %in% amenity_items) 
+      {
+      amentity_vec_of_listing <- append(amentity_vec_of_listing, 1)
+      } else 
+        {
+      amentity_vec_of_listing <- append(amentity_vec_of_listing, 0)
+        }
+    }
+  amentity_vec_of_all_listings[[i]] <- amentity_vec_of_listing
+}
+length(amentity_vec_of_all_listings)
+
+```
+
+## Convert each unique ammenity to a dummy
+```{r}
+# dummy for all amenities
+# Create a new table with amenities columns and values
+amen_dummy_table <- do.call(rbind, amentity_vec_of_all_listings)
+colnames(amen_dummy_table) <- all_amenities
+```
+
+```{r}
+# Check amenities counts
+amen_count <- colSums(amen_dummy_table[])
+#amen_count
+#names(amen_count[order(amen_count,decreasing=TRUE)])
+
+# combine new dummy amenities with original table and make a new one called 'ny_copy'
+ny_copy <- cbind(airbnb1, amen_dummy_table)
+
+```
+Top 5 amenities in NY listings are Wireless Internet, Kitchen, Heating, Essentials and Air conditioning
+
+```{r include=FALSE}
+# install a dummy package (for converting categorial variables)
+library(fastDummies)
+```
+
+## Create dummy for categorical variables
+```{r}
+ny_copy1 <- ny_copy # make a copy in case any issue would ruin the original one
+
+dummy_Neighbourhood.group.cleansed <- dummy_cols(ny_copy1$Neighbourhood.group.cleansed, ignore_na = TRUE)
+colnames(dummy_Neighbourhood.group.cleansed)[1] <- c('New_Neighbourhood.group')
+colnames(dummy_Neighbourhood.group.cleansed)[2] <- c('New_Neighbourhood.group_missing')
+colnames(dummy_Neighbourhood.group.cleansed)[3] <- c('Neighbourhood_Bronx')
+colnames(dummy_Neighbourhood.group.cleansed)[4] <- c('Neighbourhood_Brooklyn')
+colnames(dummy_Neighbourhood.group.cleansed)[5] <- c('Neighbourhood_Manhattan')
+colnames(dummy_Neighbourhood.group.cleansed)[6] <- c('Neighbourhood_Queens')
+colnames(dummy_Neighbourhood.group.cleansed)[7] <- c('Neighbourhood_StatenIsland')
+colnames(dummy_Neighbourhood.group.cleansed)
+ny_copy1<- cbind(ny_copy1, dummy_Neighbourhood.group.cleansed)
+              
+```
+
+
+```{r}
+# create dummy for "Host.is.superhost"
+
+dummy_superhost <- ny_copy1$Host.is.superhost %>% dummy_cols(ignore_na = TRUE)
+colnames(dummy_superhost)[1] <- c('New_superhost')
+colnames(dummy_superhost)[2] <- c('New_superhost_missing')
+colnames(dummy_superhost)[3] <- c('New_superhost_F')
+colnames(dummy_superhost)[4] <- c('New_superhost_T')
+colnames(dummy_superhost)
+ny_copy1 <- cbind(ny_copy1, dummy_superhost)
+
+```
+
+
+```{r}
+# create dummy for property type
+
+dummy_propety.type <- ny_copy1$Property.type %>% dummy_cols(ignore_na = TRUE)
+colnames(dummy_propety.type)[1] <-c('New_Property.type')
+colnames(dummy_propety.type)[2] <-c('Property.type_Apartment')
+colnames(dummy_propety.type)[3] <-c('Property.type_Bed&Breakfast')
+colnames(dummy_propety.type)[4] <-c('Property.type_Boat')
+colnames(dummy_propety.type)[5] <-c('Property.type_BoutiqueHotel')
+colnames(dummy_propety.type)[6] <-c('Property.type_Bungalow')
+colnames(dummy_propety.type)[7] <-c('Property.type_Cabin')
+colnames(dummy_propety.type)[8] <-c('Property.type_Castle')
+colnames(dummy_propety.type)[9] <-c('Property.type_Cave')
+colnames(dummy_propety.type)[10] <-c('Property.type_Chalet')
+colnames(dummy_propety.type)[11] <-c('Property.type_Condominium')
+colnames(dummy_propety.type)[12] <-c('Property.type_Dorm')
+colnames(dummy_propety.type)[13] <-c('Property.type_EarthHouse')
+colnames(dummy_propety.type)[14] <-c('Property.type_GuestSuite')
+colnames(dummy_propety.type)[15] <-c('Property.type_GuestHouse')
+colnames(dummy_propety.type)[16] <-c('Property.type_Hostel')
+colnames(dummy_propety.type)[17] <-c('Property.type_House')
+colnames(dummy_propety.type)[18] <-c('Property.type_In-law')
+colnames(dummy_propety.type)[19] <-c('Property.type_Loft')
+colnames(dummy_propety.type)[20] <-c('Property.type_Other')
+colnames(dummy_propety.type)[21] <-c('Property.type_ServicedApartment')
+colnames(dummy_propety.type)[22] <-c('Property.type_Tent')
+colnames(dummy_propety.type)[23] <-c('Property.type_Timeshare')
+colnames(dummy_propety.type)[24] <-c('Property.type_Townhouse')
+colnames(dummy_propety.type)[25] <-c('Property.type_Train')
+colnames(dummy_propety.type)[26] <-c('Property.type_Treehouse')
+colnames(dummy_propety.type)[27] <-c('Property.type_VacationHome')
+colnames(dummy_propety.type)[28] <-c('Property.type_Villa')
+colnames(dummy_propety.type)[29] <-c('Property.type_Yurt')
+colnames(dummy_propety.type)
+
+ny_copy1 <- cbind(ny_copy1, dummy_propety.type)
+```
+
+
+```{r}
+# create dummy for room type
+
+dummy_room.type <- ny_copy1$Room.type %>% dummy_cols(ignore_na = TRUE)
+colnames(dummy_room.type)[1] <-c('New_Room.type')
+colnames(dummy_room.type)[2] <-c('Room.type_EntireHome/apt')
+colnames(dummy_room.type)[3] <-c('Room.type_PrivateRroom')
+colnames(dummy_room.type)[4] <-c('Room.type_SharedRroom')
+colnames(dummy_room.type)
+
+ny_copy1 <- cbind(ny_copy1, dummy_room.type)
+
+```
+
+
+```{r}
+ny_copy1$Cancellation.policy %>% summary()
+```
+
+```{r}
+# create a new cancellation policy (flexible to strict- scale 1 to 4)
+ny_copy1 <- ny_copy1 %>% mutate(New_cancellation.policy = 
+                  case_when(Cancellation.policy == "flexible" ~ 1,
+                            Cancellation.policy == "moderate" ~ 2,
+                            Cancellation.policy =="long_term"~ 4, # group this one with super strict
+                            Cancellation.policy =="strict"~ 3,
+                            Cancellation.policy == "super_strict_30"~ 4,
+                            Cancellation.policy == "super_strict_60" ~ 4))
+
+ny_copy1 %>% group_by(New_cancellation.policy) %>% count()
+```
+
+
+```{r}
+#Instant bookable
+ny_copy1$Instant.bookable%>% summary()
+
+```
+
+
+```{r}
+# create dummy for instant bookable
+dummy_Instant.bookable <- ny_copy1$Instant.bookable %>% dummy_cols(ignore_na = TRUE)
+colnames(dummy_Instant.bookable)[1] <-c('New_Instant.bookable')
+colnames(dummy_Instant.bookable)[2] <-c('Instant.bookable_F')
+colnames(dummy_Instant.bookable)[3] <-c('Instant.bookable_T')
+colnames(dummy_Instant.bookable)
+
+
+ny_copy1 <- cbind(ny_copy1, dummy_Instant.bookable)
+```
+
+
+```{r}
+# Calculate host's duration from "host.since" & "last.scraped" in years
+ny_copy1 <- ny_copy1 %>% mutate(host_duration = as.numeric(format(as.Date(ny_copy1$Last.scraped),'%Y'))-as.numeric(format(as.Date(ny_copy1$Host.since),'%Y')))
+
+# Fill NA
+ny_copy1$host_duration<- replace(ny_copy1$host_duration,is.na(ny_copy1$host_duration),median(ny_copy1$host_duration, na.rm = TRUE))
+unique(ny_copy1$host_duration)
+
+#Check the result
+ny_copy1 %>% group_by(host_duration) %>% count()
+
+```
+
+```{r}
+# Convert host.response.rate into numeric variable and replace missing values with median response rate
+ny_copy1$Host.response.rate <- gsub("[][!#$%()*,.:;<=>@^_`|~.{}]", "", ny_copy1$Host.response.rate) %>% as.numeric()
+
+ny_copy1$Host.response.rate<- replace(ny_copy1$Host.response.rate,is.na(ny_copy1$Host.response.rate),median(ny_copy1$Host.response.rate, na.rm = TRUE))
+describe(ny_copy1$Host.response.rate)
+```
+
+# Cleaned data after pre-prosessing
+```{r}
+# Select the columns we need 
+ny_cleaned <- ny_copy1 %>% select(-1:-4,-6:-13,-18, -30:-31, -39:-40,-41,-44,-147,-148,-162, -163,-169, -170,-171,-173, -202,-207,-208)
+
+#Checking data values, found price with 0 values in 48 listings, so deleting those listings
+ny_cleaned1 <- ny_cleaned[ny_cleaned$Price != 0, ]
+
+# check reduced to 180 columns 
+ncol(ny_cleaned1)
+
+# Data reduced to 43760 rows
+nrow(ny_cleaned1)
+
+```
+
+# Check the Correlations
+```{r}
+library(corrplot)
+par(cex = 0.75)
+
+## text labels rotated 45 degrees
+corrplot(cor(ny_cleaned1[,c(1:25,178,180)]), type = "lower", order = "hclust", tl.col = "black", tl.srt = 45)
+
+```
+
+Review scores, Availability variables are highly positively correlated
+
+
+```{r include=FALSE}
+# create a copy for our machine learning model
+ny_cartxgb.df <- ny_cleaned1
+```
+
+
+# In-depth analysis Part 2 - Modeling and performance comparison
+
+## Model 1: Linear regression model
+```{r}
+# log transformation of skewed variables
+ny_cleaned1$Price <- log(ny_cleaned1$Price)
+ny_cleaned1$Calculated.host.listings.count <- log(ny_cleaned1$Calculated.host.listings.count)
+ny_cleaned1$Accommodates <- log(ny_cleaned1$Accommodates)
+ny_cleaned1$Guests.included <- log(ny_cleaned1$Guests.included)
+ny_cleaned1$Minimum.nights <- log(ny_cleaned1$Minimum.nights)
+ny_cleaned1$Maximum.nights <- log(ny_cleaned1$Maximum.nights)
+ny_cleaned1$Review.scores.rating <- log(ny_cleaned1$Review.scores.rating)
+ny_cleaned1$Review.scores.accuracy <- log(ny_cleaned1$Review.scores.accuracy)
+ny_cleaned1$Review.scores.cleanliness <- log(ny_cleaned1$Review.scores.cleanliness)
+ny_cleaned1$Review.scores.checkin <- log(ny_cleaned1$Review.scores.checkin)
+ny_cleaned1$Review.scores.communication <- log(ny_cleaned1$Review.scores.communication)
+ny_cleaned1$Review.scores.location <- log(ny_cleaned1$Review.scores.location)
+ny_cleaned1$Review.scores.value <- log(ny_cleaned1$Review.scores.value)
+ny_cleaned1$Reviews.per.month<- log(ny_cleaned1$Reviews.per.month)
+
+
+# Scaling and store the result as a new copy "ny_cleaned2" 
+ny_cleaned2 <- scale(ny_cleaned1)
+ny_cleaned2 <- as.data.frame(ny_cleaned2)
+```
+
+## First build a regression model with all the variables
+```{r}
+# remove three columns that have NA errors (Flat -Property.type_Yurt -Room.type_SharedRroom)
+all_var <- lm(Price ~ .-Flat -Property.type_Yurt -Room.type_SharedRroom  , data = ny_cleaned2)
+```
+
+```{r include = FALSE}
+# Load car package for VIF
+# install.packages("car")
+library(car) 
+```
+
+## Identify multilinearity
+```{r}
+#Any variable with a high VIF value (above 5 or 10) should be removed from the model. This leads to a simpler model without compromising the model accuracy, which is good.
+# Identify multilinearity > 10  = there are 31 variables being identified
+which(vif(all_var) > 10) %>% print()
+```
+
+## Build a new regression
+```{r}
+# Removed variables with VIF >10
+var_after_selection <- lm(Price ~ .- Availability.60 -  Availability.90 - `Cooking basics`-`Dishes and silverware` -Oven - Refrigerator - Stove - Neighbourhood_Bronx - Neighbourhood_Brooklyn- Neighbourhood_Manhattan- Neighbourhood_Queens -Neighbourhood_StatenIsland -Property.type_Apartment -`Property.type_Bed&Breakfast` - Property.type_BoutiqueHotel -Property.type_Bungalow -  Property.type_Condominium-Property.type_Dorm -  Property.type_GuestSuite -Property.type_GuestHouse -Property.type_Hostel -Property.type_House-Property.type_Loft -Property.type_Other -Property.type_ServicedApartment-Property.type_Timeshare - Property.type_Townhouse -Property.type_VacationHome- Property.type_Villa  -`Room.type_EntireHome/apt` - Room.type_PrivateRroom, data = ny_cleaned2)
+                          
+```
+
+```{r}
+# Further remove variables that are less irrelant to this analysis or statistically insignificant
+var_after_selection1 <- lm(Price ~ .- Availability.60 -  Availability.90 - `Cooking basics`-`Dishes and silverware` -Oven - Refrigerator - Stove - Neighbourhood_Bronx - Neighbourhood_Brooklyn- Neighbourhood_Manhattan- Neighbourhood_Queens -Neighbourhood_StatenIsland -Property.type_Apartment -`Property.type_Bed&Breakfast` - Property.type_BoutiqueHotel -Property.type_Bungalow -  Property.type_Condominium-Property.type_Dorm -  Property.type_GuestSuite -Property.type_GuestHouse -Property.type_Hostel -Property.type_House-Property.type_Loft -Property.type_Other-Property.type_ServicedApartment-Property.type_Timeshare - Property.type_Townhouse -Property.type_VacationHome- Property.type_Villa  -`Room.type_EntireHome/apt` - Room.type_PrivateRroom - Beds -Maximum.nights -Availability.365 - Review.scores.accuracy - Review.scores.checkin- Review.scores.communication - Reviews.per.month - ` smooth pathway to front door` -`24-hour check-in`-`Accessible-height bed` -`Accessible-height toilet`-`Baby bath` -`Babysitter recommendations`- Bathtub -`BBQ grill` -`Beach essentials`-`Bed linens` -Breakfast -`Carbon monoxide detector`- `Changing table` - `Cat(s)` -`Children’s dinnerware`-`Cleaning before checkout`-`Coffee maker` - `Disabled parking spot` - `Dog(s)`- `Elevator in building` - `Ethernet connection` -`EV charger`-`Extra pillows and blankets` -`Fire extinguisher` -`Fireplace guards` -`Firm mattress` -`Fixed grab bars for shower & toilet` -`Game console`-`Ground floor access`-`Handheld shower head`-Heating -`High chair`-`Hot water`-`Hot water kettle` -`Long term stays allowed`-Other - `Other pet(s)` -`Patio or balcony`-`Pocket wifi` -`Roll-in shower with chair`- `Room-darkening shades` -`Single level home`- `Ski in/Ski out`- `Smoke detector` - `Stair gates`-`Step-free access` -`Table corner guards`-Property.type_Yurt-Property.type_Treehouse - Property.type_Train -Property.type_Train-`Property.type_In-law`- Property.type_EarthHouse  -Property.type_Chalet-Property.type_Cave -Property.type_Cabin- Property.type_Boat-`Wide hallway clearance`-`Wide entryway` -`Wide doorway` -`Wide clearance to shower & toilet`-`Wide clearance to bed` -`Well-lit path to entrance`-Waterfront-`Washer / Dryer`-Washer -Property.type_Castle -Property.type_Tent -`Smart lock`-`Self Check-In`-Lockbox -Flat  -`Air purifier` -`Bathtub with shower chair`-`Children’s books and toys`-`Baby monitor`-`Laptop friendly workspace`-Guests.included -Extra.people,data = ny_cleaned2)
+
+```
+
+
+```{r}
+# Check the VIF for each variable 
+# Now all the variables have VIF <10 
+which(vif(var_after_selection1) > 10) %>% print()
+```
+
+# Creat training and testing sets
+```{r include = FALSE}
+library(caTools)
+
+set.seed(88)
+split = sample.split(ny_cleaned2$Price, SplitRatio = 0.70)
+nyTrain1 = subset(ny_cleaned2, split==TRUE)
+nyTest1 = subset(ny_cleaned2, split==FALSE)
+
+# Check that distribution of test and train are similar
+#summary(nyTrain1)
+#summary(nyTest1)
+```
+
+```{r include = FALSE}
+# install.packages("olsrr")
+library(olsrr)
+```
+
+
+## Final model: Linear Regression
+```{r}
+# Finally, we built the linear regresion model by using train data
+var_train <- lm(Price ~ .- Availability.60 -  Availability.90 - `Cooking basics`-`Dishes and silverware` -Oven - Refrigerator - Stove - Neighbourhood_Bronx - Neighbourhood_Brooklyn- Neighbourhood_Manhattan- Neighbourhood_Queens -Neighbourhood_StatenIsland -Property.type_Apartment -`Property.type_Bed&Breakfast` - Property.type_BoutiqueHotel -Property.type_Bungalow -  Property.type_Condominium-Property.type_Dorm -  Property.type_GuestSuite -Property.type_GuestHouse -Property.type_Hostel -Property.type_House-Property.type_Loft -Property.type_Other-Property.type_ServicedApartment-Property.type_Timeshare - Property.type_Townhouse -Property.type_VacationHome- Property.type_Villa  -`Room.type_EntireHome/apt` - Room.type_PrivateRroom - Beds -Maximum.nights -Availability.365 - Review.scores.accuracy - Review.scores.checkin- Review.scores.communication - Reviews.per.month - ` smooth pathway to front door` -`24-hour check-in`-`Accessible-height bed` -`Accessible-height toilet`-`Baby bath` -`Babysitter recommendations`- Bathtub -`BBQ grill` -`Beach essentials`-`Bed linens` -Breakfast -`Carbon monoxide detector`- `Changing table` - `Cat(s)` -`Children’s dinnerware`-`Cleaning before checkout`-`Coffee maker` - `Disabled parking spot` - `Dog(s)`- `Elevator in building` - `Ethernet connection` -`EV charger`-`Extra pillows and blankets` -`Fire extinguisher` -`Fireplace guards` -`Firm mattress` -`Fixed grab bars for shower & toilet` -`Game console`-`Ground floor access`-`Handheld shower head`-Heating -`High chair`-`Hot water`-`Hot water kettle` -`Long term stays allowed`-Other - `Other pet(s)` -`Patio or balcony`-`Pocket wifi` -`Roll-in shower with chair`- `Room-darkening shades` -`Single level home`- `Ski in/Ski out`- `Smoke detector` - `Stair gates`-`Step-free access` -`Table corner guards`-Property.type_Yurt-Property.type_Treehouse - Property.type_Train -Property.type_Train-`Property.type_In-law`- Property.type_EarthHouse  -Property.type_Chalet-Property.type_Cave -Property.type_Cabin- Property.type_Boat-`Wide hallway clearance`-`Wide entryway` -`Wide doorway` -`Wide clearance to shower & toilet`-`Wide clearance to bed` -`Well-lit path to entrance`-Waterfront-`Washer / Dryer`-Washer -Property.type_Castle -Property.type_Tent -`Smart lock`-`Self Check-In`-Lockbox -Flat  -`Air purifier` -`Bathtub with shower chair`-`Children’s books and toys`-`Baby monitor`-`Laptop friendly workspace`-Guests.included -Extra.people ,data = nyTrain1)
+
+# summary(var_train)
+```
+
+
+
+```{r eval = FALSE}
+install.packages("knitr")
+install.packages("broom")
+```
+
+```{r}
+# load the library for kable
+library(broom)
+library(knitr)
+```
+
+## Convert linear regression model result to kable
+```{r}
+var_train_tidy <- tidy(var_train)
+kable(var_train_tidy, digit = 3)
+```
+
+# Linear Regression - prediction
+```{r}
+# predict on test data
+nyTest1$predictions = predict(var_train, newdata = nyTest1)
+
+# check the result
+head(nyTest1$predictions)
+
+# Graphically compare the predictions to actual price. Put predictions on the x axis and see how close are the results to the line of perfect prediction
+  
+ggplot(nyTest1, aes(x = predictions, y = Price)) + 
+  geom_point(color = "rosybrown") +
+  geom_abline(color = "black")
+```
+
+## RMSE for linear regression
+```{r}
+# Install Metrics package for RMSE evaluation
+# install.packages("Metrics")
+library(Metrics)
+```
+
+```{r}
+# RMSE for our linear regression model
+rmse(nyTest1$predictions, nyTest1$Price)
+```
+
+```{r}
+# Because we took log to our dependent variable, if we want to make a comparsion with differnt model, we revert it using exponetial function, another RMSE is as below:
+rmse(exp(nyTest1$predictions), exp(nyTest1$Price))
+```
+### Inference Linear regression:
+- The RMSE: Log price: 0.66 (actual price: 2.55)
+- They are 41 variables that are statistically significant in affecting the listing price. The top variables that drive up the listing price are: Accomendates, Cleaning.fee, Review.scores.location, and the top variables that drive down the listing price are: Review.scores.value, Calculated.host.listings, and Room.type_SharedRroom. 
+
+
+# Model 2: CART
+
+## Create Training, validation and Testing Dataset from the filled dataset without log or scaled values (ny_cartxgb.df)
+```{r}
+library(caTools)
+
+set.seed(88)
+split = sample.split(ny_cartxgb.df$Price, SplitRatio = 0.70)
+nyTrain = subset(ny_cartxgb.df, split==TRUE)
+nytemp = subset(ny_cartxgb.df, split==FALSE)
+split1 = sample.split(nytemp$Price, SplitRatio = 0.50)
+nyTest = subset(nytemp, split1==FALSE)
+nyVal = subset(nytemp, split1==TRUE)
+```
+
+```{r eval = FALSE}
+install.packages("rpart")
+install.packages("rpart.plot")
+```
+
+```{r include = FALSE}
+library(rpart)
+library(rpart.plot)
+```
+
+
+## RMSE for CART
+```{r}
+#we first define the RMSE function 
+rmse <- function(pred,actual){
+  rmse=sqrt(mean((actual)^2 - (pred)^2))
+  return(rmse)
+}
+
+# now we make a grid of all complexity parameters that we want to select from
+# this vector could be smaller or larger depending on how detailed we want to be in our prediction task
+# here I just use 7 values
+cp_vec = c(0.0000003,0.002,0.0002,0.5,0.00002,0.000002,0.000000002)
+
+tree.eq <- Price ~ .
+
+# now I build a matrix to store the mse of models with different complexity parameters in the validation set
+valid_fit <- matrix(0,7,2)
+for(i in 1:7){
+  ny.valcart.cp <- rpart(formula = tree.eq, 
+                     data = nyTrain, control = rpart.control(cp = cp_vec[i]))
+  ny_pred_valid = predict(ny.valcart.cp, nyVal)
+  valid_fit[i,1] = cp_vec[i] # first column: complexity parameter
+  valid_fit[i,2] = rmse(ny_pred_valid,nyVal$Price) # second column: rmse in the validation set
+}
+
+cp_best = valid_fit[which.min(valid_fit[,2]),1]
+print(valid_fit)
+
+
+
+```
+
+```{r}
+ny.cart.train <- rpart(formula = tree.eq, data = nyTrain, control = rpart.control(cp = 0.000002))
+rpart.plot(ny.cart.train)
+```
+
+```{r include= FALSE}
+rsq.rpart(ny.cart.train)
+```
+
+```{r eval = FALSE}
+install.packages("party")
+install.packages("partykit")
+```
+
+```{r include = FALSE}
+library(party)					# Alternative decision tree algorithm
+library(partykit)	
+
+cart_prp=prp(ny.cart.train,varlen=3) #Alternate plot for CART
+cart_prp
+```
+
+## CART - predict on test data
+```{r}
+#Predicting on test data
+ny.cart.predict <- predict(ny.cart.train, nyTest)
+rmse_cart = rmse(ny.cart.predict,nyTest$Price)
+rmse_cart
+```
+### Inference CART
+1. RMSE is 31.89 which is quite high for a price variable
+2. The msot important variables as per CART are cleaning fee, availability 365, extra people, host durations, maximum nights, minimum nights, number of reviews.
+
+# Model3: XGBoost
+```{r eval = FALSE}
+install.packages('xgboost')
+```
+
+```{r}
+#Train model
+library(xgboost)
+
+xgb.train.ny = xgboost(data=data.matrix(nyTrain[,]), 
+                       label = nyTrain$Price,
+                       eta = 0.1,
+                       max_depth = 6,
+                       subsample = 0.5,
+                       nround=100,
+                       colsample_bytree = 1,
+                       num_class = 1,
+                       min_child_weight = 5,
+                       gamma = 15,
+                       nthread = 30,
+                       eval_metric = "rmse",
+                       objective = "reg:linear",
+                       verbose = 0)
+```
+
+## RMSE for XgBoost
+```{r}
+#Test model
+xgb.predict.ny = predict(xgb.train.ny,data.matrix(nyTest[,]))
+rmse_xgb=rmse(xgb.predict.ny,nyTest$Price)
+rmse_xgb
+```
+
+## Feature priortisation in XgBoost
+
+```{r include=FALSE}
+install.packages("Ckmeans.1d.dp")
+install.packages("caret")
+```
+
+```{r}
+library(Ckmeans.1d.dp)
+library(stringr)
+library(caret)
+library(car)
+
+ 
+model <- xgb.dump(xgb.train.ny, with.stats = T)
+model[1:10] #This statement prints top 10 nodes of the model
+
+ 
+# Get the feature real names
+names <- dimnames(data.matrix(nyTrain[,-6]))[[2]]
+```
+
+
+```{r eval= FALSE}
+# Compute feature importance matrix
+importance_matrix <- xgb.importance(names, model = xgb.train.ny)
+ 
+importance_matrix[order(-importance_matrix$Gain),]
+
+xgb.plot.importance(importance_matrix= importance_matrix[1:5], xlab="Gain")
+xgb.plot.importance(importance_matrix= importance_matrix[2:20], xlab="Gain") #Plotting features again because in the earlier plot, other features' bars are not visible due to higher value of cleaning fee on the scale.
+
+
+```
+
+
+### XgBoost Inference
+1. The RMSE is low at 2.4.
+2. The most important variables are clenaing fee, number of reviews, minimum nights, host response rate and beds. The importance for these features in "gain" metric are quite low. 
+
+
+# Result  
++---------------+--------------------+-------------+----------+
+|               | Linear Regression  | CART        | XGBoost  |          
++===============+====================+=============+==========+
+| RMSE          | 2.55               | 31.82       |  2.4     |           
++---------------+--------------------+-------------+----------+
+
+The RMSE for XGBoost is the lest and best which means that this model is giving better price prediction than CART and Linear Regression. The most important features (and common across all models) for predicting price for NY Airbnb properties is cleaning fee, no. of reviews,  minimum nights, free parking on street, availability. 
+
+ 
+# Conclusion
+1. It is seen that cleaning fee is a dominant feature in deciding price. Many hosts cover up for their cost by pricing a higher cleaning fee. At the same time, cleaning fee is positively correlated with price showing that if price increases, cleaning fee also increases.
+2. Number of reviews affects the price such that as no. of reviews increases, price decrease. This could be because if a property is economically priced, more people stay and thus no. of reviews eventually increases.
+3. Availability for past 30 or 90 days influences price because it is an indicator of popularity/occupancy rate of the property.  
+
+# Recommendation
+1. Airbnb hosts can use the factors provided by XgBoost model to set prices instead of using arbitary prices for their properties.
+2. Certain amenities increase price while some decrease it. Therefore new hosts can use the most important amenities (like Wireless, TV, refrigerator) to understand how to price their properties. 
+3. The pricing model will help Airbnb have more competitive prices compared to hotels in the area. While an in depth competitor analysis will be more helpful, this model is a good preliminary check.  
+ 
+# Future work
+1. This model is the bulding block to answer the question what commissions Airbnb should charge their hosts. Further data is needed on demand for each property's price point so that the commission can be fixed based on this.
+2. Demand and Price variation as per season is important. During peak tourism season, the prices might be higher. This effect of price change on bookings can also affect commissions of Airbnb.
+3. Incorporate image quality into the data to get better predictive models
+4. Augment the model with natural language processing (NLP) of listing descriptions and/or reviews, e.g. for sentiment analysis or looking for keywords.
+5. Tailor the model specifically to new listings in order to help hosts set prices for new properties, by removing features that would not be known at the time — e.g. other fees, availability and reviews.
